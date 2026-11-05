@@ -392,10 +392,10 @@
   }
   function loadDecoder(nativeFetch){
     if(!decoderPromise){
-      /* Fetch the halves ONE AT A TIME, with one retry each: two 78 MB
+      /* Fetch the halves ONE AT A TIME, with retries: two 78 MB
          downloads in parallel proved unreliable (the second one kept
          dying mid-transfer in testing), and Ben's WiFi is flaky enough
-         that a single retry is cheap insurance. Sequential costs a few
+         that retries are cheap insurance. Sequential costs a few
          extra seconds on first load and nothing after — the joined Blob
          is cached, and the browser cache holds the halves anyway. */
       function fetchPart(p, triesLeft){
@@ -403,12 +403,12 @@
           if(!r.ok) throw new Error('Lyric Video Maker v2.1: decoder half missing: ' + p + ' (HTTP ' + r.status + ')');
           return r.blob();
         }).catch(function(err){
-          if(triesLeft > 0) return fetchPart(p, triesLeft - 1);
+          if(triesLeft > 0) return new Promise(function(res){ setTimeout(res, 2000); }).then(function(){ return fetchPart(p, triesLeft - 1); });
           throw err;
         });
       }
-      decoderPromise = fetchPart(PARTS[0], 1).then(function(b0){
-        return fetchPart(PARTS[1], 1).then(function(b1){
+      decoderPromise = fetchPart(PARTS[0], 3).then(function(b0){
+        return fetchPart(PARTS[1], 3).then(function(b1){
           var total = b0.size + b1.size;
           if(total !== DECODER_SIZE) throw new Error('Lyric Video Maker v2.1: decoder halves add up to ' + total + ' bytes, expected ' + DECODER_SIZE + ' — reload the page on solid WiFi');
           return new Blob([b0, b1], {type: 'application/octet-stream'});
